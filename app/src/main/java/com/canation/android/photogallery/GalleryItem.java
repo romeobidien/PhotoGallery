@@ -1,12 +1,20 @@
 package com.canation.android.photogallery;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * Created by CangNguyen on 3/19/2017.
  */
 
 public class GalleryItem {
+
+    @SerializedName("title")
     private String mCaption;
+
+    @SerializedName("id")
     private String mId;
+
+    @SerializedName("url_s")
     private String mUrl;
 
     @Override
@@ -19,7 +27,7 @@ public class GalleryItem {
     }
 
     public void setCaption(String caption) {
-        mCaption = caption;
+        this.mCaption = caption;
     }
 
     public String getId() {
@@ -27,7 +35,7 @@ public class GalleryItem {
     }
 
     public void setId(String id) {
-        mId = id;
+        this.mId = id;
     }
 
     public String getUrl() {
@@ -35,6 +43,6 @@ public class GalleryItem {
     }
 
     public void setUrl(String url) {
-        mUrl = url;
+        this.mUrl = url;
     }
 }

@@ -3,6 +3,8 @@ package com.canation.android.photogallery;
 import android.net.Uri;
 import android.util.Log;
 
+import com.google.gson.Gson;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -13,6 +15,8 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -66,7 +70,12 @@ public class FlickrFetchr {
             String jsonString = getUrlString(url);
             Log.i(TAG, "Received JSON: " + jsonString);
             JSONObject jsonBody = new JSONObject(jsonString);
-            parseItems(items, jsonBody);
+
+            //parseItems(items, jsonBody);
+            Gson gson = new Gson();
+            JsonFromFlickr jsonFromFlickr = gson.fromJson(jsonString, JsonFromFlickr.class);
+            items = new ArrayList<>(Arrays.asList(jsonFromFlickr.photos.photo));
+
         } catch (IOException ioe) {
             Log.e(TAG, "Failed to fetch items", ioe);
         } catch (JSONException e) {
@@ -76,7 +85,10 @@ public class FlickrFetchr {
         return items;
     }
 
+    /*
     private void parseItems(List<GalleryItem> items, JSONObject jsonBody) throws IOException, JSONException{
+        Gson gson = new Gson();
+
         JSONObject photosJsonObject = jsonBody.getJSONObject("photos");
         JSONArray photoJsonArray = photosJsonObject.getJSONArray("photo");
 
@@ -95,5 +107,15 @@ public class FlickrFetchr {
 
             items.add(item);
         }
+    }
+*/
+
+    private class JsonFromFlickr {
+        private PhotosFromJson photos;
+        private String stat;
+    }
+
+    private class PhotosFromJson {
+        private GalleryItem[] photo;
     }
 }
