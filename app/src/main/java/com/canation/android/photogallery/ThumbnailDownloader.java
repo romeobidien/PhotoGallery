@@ -2,6 +2,7 @@ package com.canation.android.photogallery;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
@@ -9,6 +10,8 @@ import android.support.v4.util.LruCache;
 import android.util.Log;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -18,6 +21,7 @@ import java.util.concurrent.ConcurrentMap;
 
 public class ThumbnailDownloader<T> extends HandlerThread {
     private static final String TAG = "ThumbnailDownloader";
+    private static final String KEY_LIST_DATA = "key list data";
     private static final int MESSAGE_DOWNLOAD = 0;
 
     private boolean mHasQuit = false;
@@ -57,7 +61,7 @@ public class ThumbnailDownloader<T> extends HandlerThread {
                 if (msg.what == MESSAGE_DOWNLOAD) {
                     T target = (T)msg.obj;
                     Log.i(TAG, "Got a request for URL: " + mRequestMap.get(target));
-                    handleRequest(target);
+                    handleRequest(target, msg.getData().getStringArrayList(KEY_LIST_DATA));
                 }
             }
         };
@@ -69,14 +73,16 @@ public class ThumbnailDownloader<T> extends HandlerThread {
         return super.quit();
     }
 
-    public void queueThumbnail(T target, String url) {
-        Log.i(TAG, "Got a URL: " + url);
-
+    public void queueThumbnail(T target, String url, List<String> list) {
         if (url == null) {
             mRequestMap.remove(target);
         } else {
             mRequestMap.put(target, url);
-            mRequestHandler.obtainMessage(MESSAGE_DOWNLOAD, target).sendToTarget();
+            Bundle bundle = new Bundle();
+            bundle.putStringArrayList(KEY_LIST_DATA, (ArrayList<String>) list);
+            Message msg = mRequestHandler.obtainMessage(MESSAGE_DOWNLOAD, target);
+            msg.setData(bundle);
+            msg.sendToTarget();
         }
     }
 
@@ -85,15 +91,36 @@ public class ThumbnailDownloader<T> extends HandlerThread {
         mRequestMap.clear();
     }
 
-    private void handleRequest(final T target) {
-        try {
-            final String url = mRequestMap.get(target);
-            if (url == null) {
-                return;
+    private void handleRequest(final T target, ArrayList<String> urlList) {
+        final String url = mRequestMap.get(target);
+        if (url == null) {
+            return;
+        }
+
+        final Bitmap bitmap = retrieveBitmap(url);
+
+        mResponseHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (mRequestMap.get(target) != url || mHasQuit) {
+                    return;
+                }
+                mRequestMap.remove(target);
+                mThumbnailDownloadListener.onThumbnaiDownloaded(target, bitmap);
             }
+        });
 
-            final Bitmap bitmap;
+        if (urlList != null) {
+            for (int i = 0; i < urlList.size(); i++) {
+                retrieveBitmap(urlList.get(i));
+            }
+        }
 
+    }
+
+    private Bitmap retrieveBitmap(String url){
+        Bitmap bitmap = null;
+        try {
             if (mCache.get(url) != null) {
                 bitmap = mCache.get(url);
             } else {
@@ -102,21 +129,10 @@ public class ThumbnailDownloader<T> extends HandlerThread {
                 mCache.put(url, bitmap);
                 Log.i(TAG, "Bitmap created");
             }
-
-            mResponseHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    if (mRequestMap.get(target) != url || mHasQuit) {
-                        return;
-                    }
-
-                    mRequestMap.remove(target);
-                    mThumbnailDownloadListener.onThumbnaiDownloaded(target, bitmap);
-                }
-            });
-
         } catch (IOException e) {
             Log.e(TAG, "Error downloading image", e);
         }
+        return bitmap;
     }
+
 }

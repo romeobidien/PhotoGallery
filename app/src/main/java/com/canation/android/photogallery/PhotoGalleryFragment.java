@@ -14,10 +14,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.ImageView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.MissingFormatArgumentException;
 
 /**
  * Created by CangNguyen on 3/18/2017.
@@ -25,8 +27,10 @@ import java.util.List;
 
 public class PhotoGalleryFragment extends Fragment {
     private static final String TAG = "PhotoGalleryFragment";
+    private static final int PRELOAD_NUM = 10;
 
     private RecyclerView mPhotoRecyclerView;
+    private PhotoAdapter mPhotoAdapter;
     private List<GalleryItem> mItems = new ArrayList<>();
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
 
@@ -61,10 +65,17 @@ public class PhotoGalleryFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
 
         mPhotoRecyclerView = (RecyclerView) view.findViewById(R.id.photo_recycler_view);
-        mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(), 3));
+        final GridLayoutManager layoutManager = new GridLayoutManager(getActivity(), 3);
+        mPhotoRecyclerView.setLayoutManager(layoutManager);
+
+        mPhotoRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                mPhotoAdapter.setLastVisiblePos(layoutManager.findLastVisibleItemPosition());
+            }
+        });
 
         setupAdapter();
-
         return view;
     }
 
@@ -83,8 +94,21 @@ public class PhotoGalleryFragment extends Fragment {
 
     private void setupAdapter() {
         if (isAdded()) {
-            mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
+            mPhotoAdapter = new PhotoAdapter(mItems);
+            mPhotoRecyclerView.setAdapter(mPhotoAdapter);
         }
+    }
+
+    public List<String> getPreloadList(int pos) {
+        List<String> list = new ArrayList<>();
+        int start = (pos < PRELOAD_NUM) ? 0 : pos - PRELOAD_NUM;
+        int end = (pos > mItems.size() - 1 - PRELOAD_NUM) ? mItems.size() : pos + PRELOAD_NUM;
+
+        for(int i = start; i < end; i++) {
+                list.add(mItems.get(i).getUrl());
+        }
+
+        return list;
     }
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
@@ -102,6 +126,7 @@ public class PhotoGalleryFragment extends Fragment {
 
     private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
         private List<GalleryItem> mGalleryItems;
+        private int lastVisiblePos = 0;
 
         private PhotoAdapter(List<GalleryItem> galleryItems) {
             mGalleryItems = galleryItems;
@@ -120,12 +145,23 @@ public class PhotoGalleryFragment extends Fragment {
             Drawable placeholder = getResources().getDrawable(R.drawable.place_holder);
             holder.bindDrawable(placeholder);
 
-            mThumbnailDownloader.queueThumbnail(holder, galleryItem.getUrl());
+            List<String> list;
+            if (position < lastVisiblePos || lastVisiblePos <= 0) {
+                list = null;
+            } else {
+                list = getPreloadList(position);
+                Log.i(TAG, "Preloading images at pos: " + position + " , last visible pos: " + lastVisiblePos);
+            }
+            mThumbnailDownloader.queueThumbnail(holder, galleryItem.getUrl(), list);
         }
 
         @Override
         public int getItemCount() {
             return mGalleryItems.size();
+        }
+
+        public void setLastVisiblePos(int lastVisiblePos) {
+            this.lastVisiblePos = lastVisiblePos;
         }
     }
 
