@@ -11,11 +11,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.zip.Inflater;
 
 /**
  * Created by CangNguyen on 3/18/2017.
@@ -26,6 +25,13 @@ public class PhotoGalleryFragment extends Fragment {
 
     private RecyclerView mPhotoRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
+    int pageNum = 1;
+
+
+    private int previousTotal = 0;		//count total number of the last load
+    private boolean loading = true;		//indicate the loading data proccess
+    private int visibleThreshold = 5;	//number of remaining items before the end
+    int firstVisibleItem, visibleItemCount, totalItemCount;
 
     public static PhotoGalleryFragment newInstance() {
         return new PhotoGalleryFragment();
@@ -35,7 +41,7 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        new FetchItemsTask().execute();
+        new FetchItemsTask().execute(pageNum);
     }
 
     @Nullable
@@ -44,7 +50,34 @@ public class PhotoGalleryFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
 
         mPhotoRecyclerView = (RecyclerView) view.findViewById(R.id.photo_recycler_view);
-        mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(), 3));
+
+        final GridLayoutManager layoutManager = new GridLayoutManager(getActivity(), 3);
+        mPhotoRecyclerView.setLayoutManager(layoutManager);
+        mPhotoRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                visibleItemCount = layoutManager.getChildCount();
+                totalItemCount = layoutManager.getItemCount();
+                firstVisibleItem = layoutManager.findFirstVisibleItemPosition();
+
+                if (loading) {
+                    if (totalItemCount > previousTotal) {
+                        loading = false;
+                        previousTotal = totalItemCount;
+                    }
+                }
+                if (!loading && (totalItemCount - visibleItemCount)
+                        <= (firstVisibleItem + visibleThreshold)) {
+                    // End has been reached
+                    Log.i("Yaeye!", "end called");
+                    // Do something
+                    pageNum++;
+                    new FetchItemsTask().execute(pageNum);
+                    loading = true;
+                    Toast.makeText(getActivity() , "end of list", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
 
         setupAdapter();
 
@@ -53,7 +86,12 @@ public class PhotoGalleryFragment extends Fragment {
 
     private void setupAdapter() {
         if (isAdded()) {
-            mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
+            if (mItems.size() == 0) {
+                mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
+            } else {
+                mPhotoRecyclerView.getAdapter().notifyDataSetChanged();
+            }
+
         }
     }
 
@@ -95,16 +133,17 @@ public class PhotoGalleryFragment extends Fragment {
         }
     }
 
-    private class FetchItemsTask extends AsyncTask<Void, Void, List<GalleryItem>> {
+    private class FetchItemsTask extends AsyncTask<Integer, Void, List<GalleryItem>> {
 
         @Override
-        protected List<GalleryItem> doInBackground(Void... voids) {
-            return new FlickrFetchr().fetchItems();
+        protected List<GalleryItem> doInBackground(Integer... pageNum) {
+            return new FlickrFetchr().fetchItems(pageNum[0]);
         }
 
         @Override
         protected void onPostExecute(List<GalleryItem> galleryItems) {
-            mItems = galleryItems;
+            //mItems = galleryItems;
+            mItems.addAll(galleryItems);
             setupAdapter();
         }
     }
