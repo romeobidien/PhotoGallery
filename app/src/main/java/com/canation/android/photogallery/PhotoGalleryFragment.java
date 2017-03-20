@@ -47,19 +47,9 @@ public class PhotoGalleryFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
 
         mPhotoRecyclerView = (RecyclerView) view.findViewById(R.id.photo_recycler_view);
-        final GridLayoutManager layoutManager = new GridLayoutManager(getActivity(), 2);
-        mPhotoRecyclerView.setLayoutManager(layoutManager);
+        int colNums = getResources().getInteger(R.integer.number_of_columns);
+        mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(), colNums));
 
-        mPhotoRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                DisplayMetrics displayMetrics = getActivity().getResources().getDisplayMetrics();
-                float dpWidth = displayMetrics.widthPixels / displayMetrics.density;
-                int numOfCols = Math.round(dpWidth/COLUMN_WIDTH);
-
-                layoutManager.setSpanCount(numOfCols);
-            }
-        });
 
         setupAdapter();
 
