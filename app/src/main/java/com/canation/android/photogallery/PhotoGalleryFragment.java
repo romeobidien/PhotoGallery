@@ -99,6 +99,8 @@ public class PhotoGalleryFragment extends Fragment {
             @Override
             public boolean onQueryTextSubmit(String s) {
                 Log.d(TAG, "QueryTextSubmit: " + s);
+                searchView.setQuery("", false);
+                searchView.setIconified(true);
                 QueryPreferences.setStoredQuery(getActivity(), s);
                 updateItems();
                 return true;
