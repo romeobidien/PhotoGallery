@@ -1,10 +1,16 @@
 package com.canation.android.photogallery;
 
+import android.annotation.TargetApi;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
@@ -30,6 +36,8 @@ import java.util.List;
 
 public class PhotoGalleryFragment extends Fragment {
     private static final String TAG = "PhotoGalleryFragment";
+    private static final int POLL_JOB_ID = 1;
+    private static final int POLL_JOB_PERIOD = 1000*60;
 
     private RecyclerView mPhotoRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
@@ -120,10 +128,19 @@ public class PhotoGalleryFragment extends Fragment {
         });
 
         MenuItem toggleItem = menu.findItem(R.id.menu_item_toggle_polling);
-        if (PollService.isServiceAlarmOn(getActivity())) {
-            toggleItem.setTitle(R.string.stop_polling);
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            if (PollService.isServiceAlarmOn(getActivity())) {
+                toggleItem.setTitle(R.string.stop_polling);
+            } else {
+                toggleItem.setTitle(R.string.start_polling);
+            }
         } else {
-            toggleItem.setTitle(R.string.start_polling);
+            if (isScheduled(POLL_JOB_ID)) {
+                toggleItem.setTitle(R.string.stop_polling);
+            }else {
+                toggleItem.setTitle(R.string.start_polling);
+            }
         }
     }
 
@@ -136,8 +153,22 @@ public class PhotoGalleryFragment extends Fragment {
                 return true;
 
             case R.id.menu_item_toggle_polling:
-                boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getActivity());
-                PollService.setServiceAlarm(getActivity(), shouldStartAlarm);
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                    boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getActivity());
+                    PollService.setServiceAlarm(getActivity(), shouldStartAlarm);
+                } else {
+                    JobScheduler scheduler = (JobScheduler) getActivity().getSystemService(Context.JOB_SCHEDULER_SERVICE);
+                    if (isScheduled(POLL_JOB_ID)) {
+                        scheduler.cancel(POLL_JOB_ID);
+                    } else {
+                        JobInfo jobInfo = new JobInfo.Builder(POLL_JOB_ID, new ComponentName(getActivity(), PollJobService.class))
+                                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                                .setPeriodic(POLL_JOB_PERIOD)
+                                .setPersisted(true)
+                                .build();
+                        scheduler.schedule(jobInfo);
+                    }
+                }
                 getActivity().invalidateOptionsMenu();
                 return true;
             default:
@@ -154,6 +185,18 @@ public class PhotoGalleryFragment extends Fragment {
         if (isAdded()) {
             mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
         }
+    }
+
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    private boolean isScheduled(int jobId){
+        JobScheduler scheduler = (JobScheduler) getActivity().getSystemService(Context.JOB_SCHEDULER_SERVICE);
+
+        for (JobInfo jobInfo : scheduler.getAllPendingJobs()){
+            if (jobInfo.getId() == jobId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private class PhotoHolder extends RecyclerView.ViewHolder {

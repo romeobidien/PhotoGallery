@@ -55,28 +55,25 @@ public class PollService extends IntentService {
 
     @Override
     protected void onHandleIntent(@Nullable Intent intent) {
-        if (!isNetworkAvailableAndConnected()) {
+        if (!isNetworkAvailableAndConnected())
             return;
-        }
 
         String query = QueryPreferences.getStoredQuery(this);
         String lastResultId = QueryPreferences.getLastResultId(this);
 
         List<GalleryItem> items;
-        if (query == null) {
+        if (query == null)
             items = new FlickrFetchr().fetchRecentPhotos();
-        } else {
+        else
             items = new FlickrFetchr().searchPhotos(query);
-        }
 
-        if (items.size() == 0) {
+        if (items.size() == 0)
             return;
-        }
 
         String resultId = items.get(0).getId();
-        if (resultId.equals(lastResultId)) {
+        if (resultId.equals(lastResultId))
             Log.i(TAG, "Got an old result: " + resultId);
-        } else {
+        else {
             Log.i(TAG, "Got a new result: " + resultId);
 
             Resources resources = getResources();
