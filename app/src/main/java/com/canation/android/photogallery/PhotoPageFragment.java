@@ -70,6 +70,7 @@ public class PhotoPageFragment extends VisibleFragment {
             }
         });
 
+        //NOTE : Emulator doesn't have Google Play Store, so you'll receive error if you run on an Emulator
         mWebView.setWebViewClient(new WebViewClient(){
 
             @TargetApi(Build.VERSION_CODES.N)
